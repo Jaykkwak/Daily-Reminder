@@ -31,6 +31,8 @@ def taskboard():
 @app.route('/collaboratetaskboard',methods=['GET', 'POST'])
 def collaboratetaskboard():
     user = User.query.filter_by(username=current_user.username).first()
+    if user.collaborate == None :
+        user.collaborate = user.id
     tasks = Task.query.filter_by(collaborate_id=user.collaborate).all()
     subtask = Subtask.query.all()
     return render_template('collaboratetask.html', tasks=tasks, subtasks=subtask)
@@ -41,31 +43,16 @@ def login():
     if form.validate_on_submit():
 
         user = User.query.filter_by(username=form.username.data).first()
-        # if no user found or password for user incorrect
-        # user.check_password() is a method in the User class
         if user is None or not user.check_password(form.password.data):
             flash('Invalided username or password')
             return redirect('/login')
-        # let flask_login library know what user logged int
-        # it also means that their password was correct
         login_user(user)
-         # return to page before user got asked to login
-        # for example, if user tried to access a wedpage called profile, but since they
-        # weren't logged in they would get redirected to login page. After they log in
-        # the user will be redirected to their previous request, which would be the profile
-        # page in this case.
-#        next_page = request.args.get('next')
-#        if not next_page or url_parse(next_page).netloc != '':
-#            next_page = url_for('index')
         return redirect("/")
 
     return render_template('login.html', title='Log In', form=form)
 
 @app.route("/req")
-# user needs to be logged in to see this page
-# needs to be user route!
 @login_required
-# called view function
 def req():
     return '''<html><body>
     User needs to be logged in
@@ -79,9 +66,10 @@ def signup():
         exiting_user = User.query.filter_by(username=form.username.data).first()
         if exiting_user is None or not exiting_user.check_username(form.username.data):
             password = generate_password_hash(form.password.data)
-            newuser = User(username=form.username.data, email=form.email.data, password = password )
+            newuser = User(username=form.username.data, email=form.email.data, password = password)
             db.session.add(newuser)
             db.session.commit()
+
             return f'''<html><body>
                         {form.username.data} Successfully Signed Up </b>
                         <a href="/login">Login</a>
@@ -100,16 +88,12 @@ def signup():
 @login_required
 def changepassword():
     user = current_user
-    #print("current pass:" +user.password)
     form = ChangePasswordForm()
     if form.validate_on_submit():
         if not check_password_hash(user.password,form.oldpassword.data):
-            #print(form.oldpassword.data)
             flash('Invalid password')
             return redirect('/changepassword')
         if check_password_hash(user.password,form.oldpassword.data):
-            
-            #print(form.newpassword.data)
             user.password = generate_password_hash(form.newpassword.data)
             db.session.add(user)
             db.session.commit()
@@ -172,12 +156,7 @@ def delete_task(task_id):
 def edit_task(task_id):
     form = EditTask()
     task = Task.query.get(task_id)
-    
-   
-
     if request.method == 'POST':
-#        if request.form['cancel']:
-#            return redirect('/taskboard')
         if form.validate_on_submit():
             task.content=form.edittask.data
             db.session.commit()
@@ -239,33 +218,6 @@ def category(category_id):
     categories = Category.query.filter_by(user_id=user.id).all()
     return render_template('taskboard.html', tasks=tasks, assign_tasks= assign_tasks, categories=categories)
 
-
-#@app.route('/assignuser', methods = ['GET','POST'])
-#@login_required
-#def assignuser():
-    
-#    return render_template('assignuser.html', title= 'Assign User',form = form)
-
-'''
-Routes.py build on the files forms.py and their html templates. 
-The forms are imported and this code specifies what is a valid input for the forms. 
-This also includes where the user can navigate from each form. 
-'''
-
-# @app.route('/done/<int:task_id>')
-# @login_required
-# def complete(task_id):
-#     task = Task.query.get(task_id)
-#     user = current_user
-#     if not task:
-#         return redirect('/')
-#     if task.done:
-#         task.done = False
-#     else:
-#         task.done = True
-
-#     db.session.commit()
-#     return redirect('/')
 @celery.task
 def send_mail(info):
     with app.app_context():
